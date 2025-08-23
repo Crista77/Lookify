@@ -1,4 +1,4 @@
-package com.example.lookify
+package com.example.traveldiary
 
 import org.junit.Test
 

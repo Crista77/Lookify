@@ -1,29 +1,40 @@
-package com.example.traveldiary.ui.composables
+package com.example.lookify.ui.composables
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.traveldiary.ui.TravelDiaryRoute
+import com.example.lookify.R
+import com.example.lookify.ui.LookifyRoute
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppBar(navController: NavController, title: String) {
+fun TitleAppBar(navController: NavController) {
     CenterAlignedTopAppBar(
         title = {
-            Text(
-                title,
-                fontWeight = FontWeight.Medium,
+            Image(
+                painter = painterResource(id = R.drawable.lookify_logo),
+                contentDescription = "Lookify Logo",
+                modifier = Modifier
+                    .height(40.dp)
+                    .width(150.dp)
+                    .clickable { navController.navigate(LookifyRoute.Home) },
+                contentScale = ContentScale.Fit
             )
         },
         navigationIcon = {
@@ -33,20 +44,8 @@ fun AppBar(navController: NavController, title: String) {
                 }
             }
         },
-        actions = {
-            if (title == "TravelDiary") {
-                IconButton(onClick = { /*TODO*/ }) {
-                    Icon(Icons.Outlined.Search, contentDescription = "Search")
-                }
-            }
-            if (title != "Settings") {
-                IconButton(onClick = { navController.navigate(TravelDiaryRoute.Settings) }) {
-                    Icon(Icons.Outlined.Settings, "Settings")
-                }
-            }
-        },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = Color.Black
         )
     )
 }
