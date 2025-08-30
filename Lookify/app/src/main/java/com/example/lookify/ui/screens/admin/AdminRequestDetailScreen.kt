@@ -27,6 +27,7 @@ import com.example.lookify.ui.LookifyRoute
 import com.example.lookify.ui.LookifyState
 import com.example.lookify.ui.LookifyViewModel
 import com.example.lookify.ui.composables.TitleAppBar
+import com.example.lookify.ui.screens.cinema.getCurrentUser
 
 @Composable
 fun AdminRequestDetailScreen(
@@ -280,10 +281,10 @@ fun AdminRequestDetailScreen(
                         confirmAction = {
                             when (requestData) {
                                 is RequestDetailData.FilmData -> {
-                                    viewModel.approveFilmRequest(requestId)
+                                    viewModel.approveFilmRequest(requestId, context)
                                 }
                                 is RequestDetailData.SerieData -> {
-                                    viewModel.approveSerieRequest(requestId)
+                                    viewModel.approveSerieRequest(requestId, context)
                                 }
                             }
                             navController.navigate("${LookifyRoute.AdminUser}?userId=${state.currentUserId}")
@@ -295,10 +296,10 @@ fun AdminRequestDetailScreen(
                         confirmAction = {
                             when (requestData) {
                                 is RequestDetailData.FilmData -> {
-                                    viewModel.rejectFilmRequest(requestId)
+                                    viewModel.rejectFilmRequest(context, requestId)
                                 }
                                 is RequestDetailData.SerieData -> {
-                                    viewModel.rejectSerieRequest(requestId)
+                                    viewModel.rejectSerieRequest(context, requestId)
                                 }
                             }
                             navController.navigate("${LookifyRoute.AdminUser}?userId=${state.currentUserId}")

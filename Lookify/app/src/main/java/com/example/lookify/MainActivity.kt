@@ -146,14 +146,6 @@ class MainActivity : ComponentActivity() {
             )
             serieWRepo.insert(sw)
 
-            val followerRepo: FollowersRepository = get()
-            val follower = Followers(
-                seguaceId = 111,
-                seguitoId = 110
-            )
-
-            followerRepo.insert(follower)
-
 
             val trofei: TrophyRepository = get()
             trofei.deleteAll()

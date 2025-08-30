@@ -2,9 +2,14 @@ package com.example.lookify.ui
 
 import TrophyChecker
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.compose.ui.graphics.Color
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.lookify.data.database.*
@@ -134,76 +139,117 @@ class LookifyViewModel(
 
     private val trophyChecker = TrophyChecker()
 
-    // ✅ TRIGGER 1: Quando l'utente guarda un film
-    fun markFilmAsWatched(userId: Int, filmId: Int) {
+    fun markFilmAsWatched(context: Context, userId: Int, filmId: Int) {
         viewModelScope.launch {
             // Logica esistente per segnare come visto
             filmWatchedRepository.insert(
                 FilmWatched(utenteId = userId, filmId = filmId)
             )
 
-            // 🎯 TRIGGER: Controlla trofei dopo aver visto il film
-            checkAndUnlockTrophies(userId)
+            checkAndUnlockTrophies(context, userId)
         }
     }
 
-    // ✅ TRIGGER 2: Quando l'utente guarda una serie
-    fun markSeriesAsWatched(userId: Int, seriesId: Int) {
+    fun markSeriesAsWatched(context: Context, userId: Int, seriesId: Int) {
         viewModelScope.launch {
             // Logica esistente
             serieTVWatchedRepository.insert(
                 SerieTV_Watched(id_user = userId, serieId = seriesId)
             )
 
-            // 🎯 TRIGGER: Controlla trofei
-            checkAndUnlockTrophies(userId)
+            checkAndUnlockTrophies(context, userId)
         }
     }
 
-    // ✅ TRIGGER 3: Quando ottieni un nuovo follower
-    fun addFollower(followerId: Int, followedId: Int) {
+    fun findUserById(userId: Int): Users? {
+        return state.value.users.find { it.id_user == userId }
+    }
+
+    fun addFollower(context: Context, followerId: Int, followedId: Int, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            // Logica esistente
-            followersRepository.insert(
-                Followers(seguaceId = followerId, seguitoId = followedId)
-            )
+            try {
+                val newFollower = Followers(seguaceId = followerId, seguitoId = followedId)
 
-            // 🎯 TRIGGER: Controlla trofei per l'utente seguito
-            checkAndUnlockTrophies(followedId.toInt())
+                followersRepository.insert(newFollower)
+
+                checkAndUnlockTrophies(context, followedId)
+                onComplete()
+                createNotification(
+                    context,
+                    userId = followedId,
+                    title = "Hai un nuovo follower!",
+                    message = "L'utente ${findUserById(followerId)?.username} ti ha iniziato a seguire!"
+                )
+
+            } catch (e: Exception) {
+                Log.e("AddFollower", "Errore nell'aggiunta del follower", e)
+                onComplete()
+            }
         }
     }
 
-    // ✅ TRIGGER 4: All'avvio dell'app/login
-    fun onUserLogin(userId: Int) {
+    fun unfollowUser(followerId: Int, followedId: Int, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            // 🎯 TRIGGER: Controlla trofei all'avvio
-            checkAndUnlockTrophies(userId)
+            try {
+                followersRepository.deleteFollower(followerId, followedId)
+                onComplete()
+            } catch (e: Exception) {
+                Log.e("UnfollowUser", "Errore nell'unfollow dell'utente", e)
+                onComplete()
+            }
         }
     }
+
+    fun addWatchedFilm(userId: Int, filmId: Int, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            filmWatchedRepository.insert(FilmWatched(utenteId = userId, filmId = filmId))
+            onComplete()
+        }
+    }
+
+    fun removeWatchedFilm(userId: Int, filmId: Int, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            filmWatchedRepository.delete(FilmWatched(userId, filmId))
+            onComplete()
+        }
+    }
+
+    fun rateFilm(userId: Int, filmId: Int, stars: Int, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Trova il film tra quelli caricati nello stato
+            val film = state.value.films.find { it.id_film == filmId }
+
+            film?.let {
+                val updatedFilm = it.copy(stelle = stars)
+
+                // Chiama la repository per aggiornare il film nel DB
+                filmsRepository.upsert(updatedFilm)
+            }
+
+            onComplete()
+        }
+    }
+
+
 
     // Funzione principale che fa il controllo
-    private suspend fun checkAndUnlockTrophies(userId: Int) {
-        // Ottieni lo stato aggiornato
+    private suspend fun checkAndUnlockTrophies(context: Context, userId: Int) {
         val currentState = state.value
 
-        // Controlla nuovi trofei
         val newTrophies = trophyChecker.checkTrophies(userId, currentState)
 
         if (newTrophies.isNotEmpty()) {
-            // Sblocca i trofei nel database
             achievementsRepository.unlockTrophies(userId, newTrophies)
 
-            // Mostra notifica (opzionale)
-            showTrophyNotifications(newTrophies, currentState)
+            showTrophyNotifications(context, userId, newTrophies, currentState)
         }
     }
 
-    private fun showTrophyNotifications(trophyIds: List<Int>, state: LookifyState) {
+    private fun showTrophyNotifications(context: Context, userId: Int, trophyIds: List<Int>, state: LookifyState) {
         trophyIds.forEach { id ->
             val trophy = state.trophies.find { it.id == id }
             trophy?.let {
-                // TODO: Implementa toast/snackbar
-                println("🏆 Nuovo trofeo sbloccato: ${it.nome}!")
+                createNotification(context, userId, "Trofeo Sbloccato", "Complimenti hai sbloccato il trofeo ${it.nome}!")
             }
         }
     }
@@ -272,27 +318,25 @@ class LookifyViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // 🔹 Copia immagine nella storage interna
+                // Copia immagine nella storage interna
                 val finalImagePath = imageUri?.let { uri ->
                     imageName?.let { name ->
                         copyImageToInternalStorage(context, uri, name)
                     }
                 }
 
-                // 🔹 Inserimento serie con percorso immagine aggiornato
+                // Inserimento serie con percorso immagine aggiornato
                 val updatedSerie = serie.copy(imageUri = finalImagePath)
                 serieTVRepository.insert(updatedSerie)
 
-                // 🔹 Recupero id serie appena inserita
+                // Recupero id serie appena inserita
                 val serieId = serieTVRepository.allSerieTV.first().last().id_serie
 
-                // 🔹 Gestione piattaforma
                 val platform = platformRepository.allPlatforms
                     .first()
                     .find { it.nome.equals(platformName, ignoreCase = true) }
                     ?: Platform(nome = platformName).also { platformRepository.upsert(it) }
 
-                // 🔹 Collega serie alla piattaforma
                 seriePlatformRepository.upsert(
                     Serie_Platform(
                         serieId = serieId,
@@ -300,14 +344,12 @@ class LookifyViewModel(
                     )
                 )
 
-                // 🔹 Inserimento attori
                 actors.forEach { actor ->
                     actorsRepository.upsert(actor)
                     val actorId = actorsRepository.allActors.first()
                         .last { it.nome == actor.nome && it.cognome == actor.cognome }
                         .id
 
-                    // 🔹 Collega attore alla serie
                     actorsInSerieRepository.upsert(
                         Actors_In_Serie(
                             serieId = serieId,
@@ -352,27 +394,22 @@ class LookifyViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // 🔹 Copia immagine nella storage interna
                 val finalImagePath = imageUri?.let { uri ->
                     imageName?.let { name ->
                         copyImageToInternalStorage(context, uri, name)
                     }
                 }
 
-                // 🔹 Inserimento film con percorso immagine aggiornato e visibile = false
                 val updatedFilm = film.copy(imageUri = finalImagePath, visibile = false)
                 filmsRepository.insert(updatedFilm)
 
-                // 🔹 Recupero id film appena inserito
                 val filmId = filmsRepository.allFilms.first().last().id_film
 
-                // 🔹 Gestione piattaforma
                 val platform = platformRepository.allPlatforms
                     .first()
                     .find { it.nome.equals(platformName, ignoreCase = true) }
                     ?: Platform(nome = platformName).also { platformRepository.upsert(it) }
 
-                // 🔹 Collega film alla piattaforma
                 filmPlatformRepository.upsert(
                     Film_Platform(
                         filmId = filmId,
@@ -380,14 +417,12 @@ class LookifyViewModel(
                     )
                 )
 
-                // 🔹 Inserimento attori
                 actors.forEach { actor ->
                     actorsRepository.upsert(actor)
                     val actorId = actorsRepository.allActors.first()
                         .last { it.nome == actor.nome && it.cognome == actor.cognome }
                         .id
 
-                    // 🔹 Collega attore al film
                     actorsInFilmRepository.upsert(
                         Actors_In_Film(
                             filmId = filmId,
@@ -396,7 +431,6 @@ class LookifyViewModel(
                     )
                 }
 
-                // 🔹 Crea la richiesta di film
                 val filmRequest = FilmRequest(
                     filmId = filmId,
                     richiedenteId = userId,
@@ -425,27 +459,22 @@ class LookifyViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // 🔹 Copia immagine nella storage interna
                 val finalImagePath = imageUri?.let { uri ->
                     imageName?.let { name ->
                         copyImageToInternalStorage(context, uri, name)
                     }
                 }
 
-                // 🔹 Inserimento serie con percorso immagine aggiornato e visibile = false
                 val updatedSerie = serie.copy(imageUri = finalImagePath, visibile = false)
                 serieTVRepository.insert(updatedSerie)
 
-                // 🔹 Recupero id serie appena inserita
                 val serieId = serieTVRepository.allSerieTV.first().last().id_serie
 
-                // 🔹 Gestione piattaforma
                 val platform = platformRepository.allPlatforms
                     .first()
                     .find { it.nome.equals(platformName, ignoreCase = true) }
                     ?: Platform(nome = platformName).also { platformRepository.upsert(it) }
 
-                // 🔹 Collega serie alla piattaforma
                 seriePlatformRepository.upsert(
                     Serie_Platform(
                         serieId = serieId,
@@ -453,14 +482,12 @@ class LookifyViewModel(
                     )
                 )
 
-                // 🔹 Inserimento attori
                 actors.forEach { actor ->
                     actorsRepository.upsert(actor)
                     val actorId = actorsRepository.allActors.first()
                         .last { it.nome == actor.nome && it.cognome == actor.cognome }
                         .id
 
-                    // 🔹 Collega attore alla serie
                     actorsInSerieRepository.upsert(
                         Actors_In_Serie(
                             serieId = serieId,
@@ -469,7 +496,6 @@ class LookifyViewModel(
                     )
                 }
 
-                // 🔹 Crea la richiesta di serie
                 val serieRequest = SerieTV_Request(
                     serieId = serieId,
                     richiedenteId = userId,
@@ -486,7 +512,7 @@ class LookifyViewModel(
         }
     }
 
-    fun approveFilmRequest(requestId: Int) {
+    fun approveFilmRequest(requestId: Int, context: Context) {
         viewModelScope.launch {
             try {
                 // Ottieni la richiesta per trovare il film
@@ -504,6 +530,11 @@ class LookifyViewModel(
                     if (film != null) {
                         val updatedFilm = film.copy(visibile = true)
                         filmsRepository.upsert(updatedFilm)
+                        createNotification(
+                            context,
+                            title = "Richiesta Film Approvata",
+                            message = "La tua richiesta per il Film ${film.titolo} è stata approvata",
+                            userId = request.richiedenteId)
                     }
                 }
 
@@ -514,7 +545,7 @@ class LookifyViewModel(
         }
     }
 
-    fun approveSerieRequest(requestId: Int) {
+    fun approveSerieRequest(requestId: Int, context: Context) {
         viewModelScope.launch {
             try {
                 // Ottieni la richiesta per trovare la serie
@@ -532,6 +563,11 @@ class LookifyViewModel(
                     if (serie != null) {
                         val updatedSerie = serie.copy(visibile = true)
                         serieTVRepository.upsert(updatedSerie)
+                        createNotification(
+                            context,
+                            title = "Richiesta Serie TV Approvata",
+                            message = "La tua richiesta per la Serie ${serie.titolo} è stata approvata",
+                            userId = request.richiedenteId)
                     }
                 }
 
@@ -595,7 +631,7 @@ class LookifyViewModel(
         }
     }
 
-    fun rejectFilmRequest(requestId: Int) {
+    fun rejectFilmRequest(context: Context, requestId: Int) {
         viewModelScope.launch {
             try {
                 // Ottieni la richiesta per trovare il film
@@ -623,6 +659,12 @@ class LookifyViewModel(
                             filmPlatformRepository.delete(filmPlatform)
                         }
 
+                        createNotification(
+                            context,
+                            title = "Richiesta Film Rifiutata",
+                            message = "La tua richiesta per il Film ${film.titolo} è stata rifiutata",
+                            userId = request.richiedenteId)
+
                         // Infine elimina il film
                         filmsRepository.delete(film)
                     }
@@ -635,7 +677,7 @@ class LookifyViewModel(
         }
     }
 
-    fun rejectSerieRequest(requestId: Int) {
+    fun rejectSerieRequest(context: Context, requestId: Int) {
         viewModelScope.launch {
             try {
                 // Ottieni la richiesta per trovare la serie
@@ -663,6 +705,12 @@ class LookifyViewModel(
                             seriePlatformRepository.delete(seriePlatform)
                         }
 
+                        createNotification(
+                            context,
+                            title = "Richiesta Serie TV Approvata",
+                            message = "La tua richiesta per la Serie ${serie.titolo} è stata approvata",
+                            userId = request.richiedenteId)
+
                         // Infine elimina la serie
                         serieTVRepository.delete(serie)
                     }
@@ -674,5 +722,146 @@ class LookifyViewModel(
             }
         }
     }
+
+    // Funzione per creare una notifica
+    fun createNotification(context: Context, userId: Int, title: String, message: String, type: String = "info") {
+        viewModelScope.launch {
+            try {
+                val notification = Notify(
+                    nome = title,
+                    contenuto = message,
+                )
+                notifyRepository.insert(notification)
+
+                // Ottieni l'ID della notifica appena inserita
+                val notificationId = notifyRepository.allNotify.first().last().id
+
+                // Crea il collegamento reached_notify
+                val reachedNotify = Reached_Notify(
+                    id_user = userId,
+                    notificaId = notificationId,
+                    letta = false
+                )
+                notifyReachedRepository.insert(reachedNotify)
+                showSystemNotification(context, title, message)
+
+                Log.d("CreateNotification", "Notifica creata per utente $userId")
+            } catch (e: Exception) {
+                Log.e("CreateNotification", "Errore nella creazione della notifica", e)
+            }
+        }
+    }
+
+    // Funzione per segnare una notifica come letta
+    fun markNotificationAsRead(userId: Int, notificationId: Int) {
+        viewModelScope.launch {
+            try {
+                notifyReachedRepository.markAsRead(userId, notificationId)
+                Log.d("MarkNotification", "Notifica $notificationId segnata come letta per utente $userId")
+            } catch (e: Exception) {
+                Log.e("MarkNotification", "Errore nel segnare la notifica come letta", e)
+            }
+        }
+    }
+
+    // Funzione per segnare tutte le notifiche come lette per un utente
+    fun markAllNotificationsAsRead(userId: Int) {
+        viewModelScope.launch {
+            try {
+                val unreadNotifications = notifyReachedRepository.allNotifyReached.first()
+                    .filter { it.id_user == userId && !it.letta }
+
+                unreadNotifications.forEach { reachedNotify ->
+                    notifyReachedRepository.markAsRead(userId, reachedNotify.notificaId)
+                }
+
+                Log.d("MarkAllNotifications", "Tutte le notifiche segnate come lette per utente $userId")
+            } catch (e: Exception) {
+                Log.e("MarkAllNotifications", "Errore nel segnare tutte le notifiche come lette", e)
+            }
+        }
+    }
+
+    // Funzione per ottenere le notifiche non lette di un utente
+    fun getUnreadNotificationsForUser(userId: Int): Flow<List<Pair<Notify, Reached_Notify>>> {
+        return combine(
+            notifyRepository.allNotify,
+            notifyReachedRepository.allNotifyReached
+        ) { notifications, reachedNotifications ->
+            val userUnreadReached = reachedNotifications.filter {
+                it.id_user == userId && !it.letta
+            }
+
+            userUnreadReached.mapNotNull { reached ->
+                val notification = notifications.find { it.id == reached.notificaId }
+                notification?.let { it to reached }
+            }
+        }
+    }
+
+    private fun showSystemNotification(context: Context, title: String, message: String) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val channelId = "lookify_channel"
+        val channelName = "Lookify Notifiche"
+
+
+        var channel = notificationManager.getNotificationChannel(channelId)
+        if (channel == null) {
+            channel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            channel.enableLights(true)
+            channel.enableVibration(true)
+            channel.description = "Notifiche Lookify"
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // Costruzione notifica
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info) // icona valida
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // compatibilità pre-Oreo
+            .setDefaults(NotificationCompat.DEFAULT_ALL) // suono + vibrazione + LED
+            .setAutoCancel(true)
+            .build()
+
+        // Mostra notifica
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    // Funzione per eliminare tutte le notifiche di un utente
+    fun deleteAllNotifications(userId: Int) {
+        viewModelScope.launch {
+            try {
+                val userNotifications = notifyReachedRepository.allNotifyReached.first()
+                    .filter { it.id_user == userId }
+
+                userNotifications.forEach { reachedNotify ->
+                    notifyReachedRepository.deleteNotification(userId, reachedNotify.notificaId)
+                }
+
+                Log.d("DeleteAllNotifications", "Tutte le notifiche eliminate per utente $userId")
+            } catch (e: Exception) {
+                Log.e("DeleteAllNotifications", "Errore nell'eliminare tutte le notifiche", e)
+            }
+        }
+    }
+
+    // Funzione per eliminare una singola notifica
+    fun deleteNotification(userId: Int, notificationId: Int) {
+        viewModelScope.launch {
+            try {
+                notifyReachedRepository.deleteNotification(userId, notificationId)
+                Log.d("DeleteNotification", "Notifica $notificationId eliminata per utente $userId")
+            } catch (e: Exception) {
+                Log.e("DeleteNotification", "Errore nell'eliminare notifica $notificationId", e)
+            }
+        }
+    }
+
 
 }

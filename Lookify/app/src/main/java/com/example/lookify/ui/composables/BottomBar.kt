@@ -44,11 +44,11 @@ fun BottomBar(state: LookifyState, navController: NavController) {
             Icon(Icons.Outlined.Movie, contentDescription = "Film", tint = Color.White)
         }
         if (getCurrentUser(state)?.admin == true){
-            IconButton(onClick = { navController.navigate(LookifyRoute.AdminUser.toString()) }) {
+            IconButton(onClick = { navController.navigate("${LookifyRoute.AdminUser}?userId=${state.currentUserId}") }) {
                 Icon(Icons.Outlined.Person, contentDescription = "AdminUser", tint = Color.White)
             }
         } else {
-            IconButton(onClick = { navController.navigate(LookifyRoute.Users.toString()) }) {
+            IconButton(onClick = { navController.navigate("${LookifyRoute.Users}?userId=${state.currentUserId}") }) {
                 Icon(Icons.Outlined.Person, contentDescription = "Users", tint = Color.White)
             }
         }

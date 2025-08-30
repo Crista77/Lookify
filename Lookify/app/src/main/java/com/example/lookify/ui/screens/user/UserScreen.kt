@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
@@ -169,6 +170,12 @@ fun UserScreen(state: LookifyState, navController: NavController) {
         } ?: emptyList()
     }
 
+    val hasUnreadNotifications = remember(state.reachedNotifications, state.currentUserId) {
+        state.reachedNotifications.any { notification ->
+            notification.id_user == state.currentUserId && !notification.letta
+        }
+    }
+
     Scaffold(
         topBar = { TitleAppBar(navController) },
         bottomBar = { BottomBar(state, navController) }
@@ -184,7 +191,11 @@ fun UserScreen(state: LookifyState, navController: NavController) {
             item {
                 ProfileHeader(
                     user = currentUser,
-                    followersCount = followersCount
+                    followersCount = followersCount,
+                    hasUnreadNotifications = hasUnreadNotifications,
+                    onNotificationClick = {
+                        navController.navigate("${LookifyRoute.Notification}?userId=${state.currentUserId}")
+                    }
                 )
             }
 
@@ -230,7 +241,9 @@ fun UserScreen(state: LookifyState, navController: NavController) {
 @Composable
 fun ProfileHeader(
     user: Users?,
-    followersCount: Int
+    followersCount: Int,
+    hasUnreadNotifications: Boolean = false,
+    onNotificationClick: () -> Unit = {}
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -264,11 +277,51 @@ fun ProfileHeader(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "Il Mio Profilo",
-            color = Color.White,
-            fontSize = 16.sp
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Spacer(modifier = Modifier.width(48.dp))
+
+            Text(
+                text = "Il Mio Profilo",
+                color = Color.White,
+                fontSize = 16.sp,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center
+            )
+
+            // Pulsante campanella notifiche (allineato a destra)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clickable { onNotificationClick() }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notifiche",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.Center)
+                )
+
+                // Pallino rosso per notifiche non lette
+                if (hasUnreadNotifications) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(Color.Red, CircleShape)
+                            .align(Alignment.TopEnd)
+                            .zIndex(1f)
+                    )
+                }
+            }
+        }
+
 
         Text(
             text = user?.username ?: "Guest",

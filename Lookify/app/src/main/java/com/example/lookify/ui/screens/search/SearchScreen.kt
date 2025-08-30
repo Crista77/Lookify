@@ -179,6 +179,7 @@ fun SearchScreen(state: LookifyState, navController: NavController, selectedNav:
             when (selectedFilter) {
                 SearchFilter.FILM -> {
                     FilmSearchResults(
+                        state,
                         films = filterFilms(state.films, searchQuery, selectedCategory),
                         navController = navController
                     )
@@ -191,6 +192,7 @@ fun SearchScreen(state: LookifyState, navController: NavController, selectedNav:
                 }
                 SearchFilter.UTENTI -> {
                     UsersSearchResults(
+                        state = state,
                         users = filterUsers(state.users, searchQuery), // Usa i dati dal database
                         navController = navController
                     )
@@ -325,6 +327,7 @@ fun getUniqueSeriesCategories(series: List<SerieTV>): List<String> {
 
 @Composable
 fun FilmSearchResults(
+    state: LookifyState,
     films: List<Film>,
     navController: NavController
 ) {
@@ -341,7 +344,7 @@ fun FilmSearchResults(
                 FilmSearchItem(
                     film = film,
                     onClick = {
-                        //navController.navigate("${LookifyRoute.FilmDetail}/${film.id_film}")
+                        navController.navigate("${LookifyRoute.Film}?filmId=${film.id_film}&currentUserId=${state.currentUserId}")
                     }
                 )
             }
@@ -376,6 +379,7 @@ fun SeriesTvSearchResults(
 
 @Composable
 fun UsersSearchResults(
+    state: LookifyState,
     users: List<Users>,
     navController: NavController
 ) {
@@ -392,8 +396,9 @@ fun UsersSearchResults(
                 UserSearchItem(
                     user = user,
                     onClick = {
-                        // Naviga al profilo utente
-                        //navController.navigate("${LookifyRoute.UserProfile}/${user.id_user}")
+                        navController.navigate(
+                            "${LookifyRoute.OtherUser}?userId=${user.id_user}&currentUserId=${state.currentUserId}"
+                        )
                     }
                 )
             }

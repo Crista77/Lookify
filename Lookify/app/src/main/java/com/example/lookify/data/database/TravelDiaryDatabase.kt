@@ -26,7 +26,7 @@ import androidx.room.RoomDatabase
         Actors_In_Serie::class,
         Serie_Platform::class
     ],
-    version = 14
+    version = 16
 )
 
 abstract class LookifyDatabase : RoomDatabase() {

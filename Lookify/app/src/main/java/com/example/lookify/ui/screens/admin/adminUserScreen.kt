@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
@@ -47,6 +50,12 @@ fun AdminUserScreen(
         state.users.find { it.id_user == id }
     }
 
+    // Controlla se ci sono notifiche non lette per l'utente corrente
+    val hasUnreadNotifications = remember(state.reachedNotifications, state.currentUserId) {
+        state.reachedNotifications.any { notification ->
+            notification.id_user == state.currentUserId && !notification.letta
+        }
+    }
 
     Scaffold(
         topBar = { TitleAppBar(navController) },
@@ -62,7 +71,13 @@ fun AdminUserScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // 🔹 Header Profilo Admin
-            AdminProfileHeader(user = currentUser)
+            AdminProfileHeader(
+                user = currentUser,
+                hasUnreadNotifications = hasUnreadNotifications,
+                onNotificationClick = {
+                    navController.navigate("${LookifyRoute.Notification}?userId=${state.currentUserId}")
+                }
+            )
 
             Spacer(modifier = Modifier.height(60.dp))
 
@@ -85,18 +100,57 @@ fun AdminUserScreen(
 }
 
 @Composable
-fun AdminProfileHeader(user: Users?) {
+fun AdminProfileHeader(
+    user: Users?,
+    hasUnreadNotifications: Boolean = false,
+    onNotificationClick: () -> Unit = {}
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = "Profilo Gestione App",
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        // Header con titolo e campanella notifiche
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Profilo Gestione App",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Pulsante campanella notifiche
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clickable { onNotificationClick() }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notifiche",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.Center)
+                )
+
+                // Pallino rosso per notifiche non lette
+                if (hasUnreadNotifications) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(Color.Red, CircleShape)
+                            .align(Alignment.TopEnd)
+                            .zIndex(1f)
+                    )
+                }
+            }
+        }
 
         Box(
             modifier = Modifier

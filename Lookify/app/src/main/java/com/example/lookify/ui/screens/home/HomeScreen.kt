@@ -51,6 +51,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 FilmCarousel(
+                    state,
                     films = state.films
                         .filter { it.visibile }
                         .sortedByDescending { it.id_film }
@@ -71,6 +72,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 FilmCarousel(
+                    state,
                     films = state.films
                         .filter { it.visibile }
                         .sortedByDescending { it.visualizzazioni }
@@ -127,6 +129,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
 
 @Composable
 fun FilmCarousel(
+    state: LookifyState,
     films: List<Film>,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -157,7 +160,7 @@ fun FilmCarousel(
             FilmItem(
                 item = films[currentIndex],
                 onClick = {
-                    //navController.navigate(LookifyRoute.TravelDetails(films[currentIndex].id_film))
+                    navController.navigate("${LookifyRoute.Film}?filmId=${films[currentIndex].id_film}&currentUserId=${state.currentUserId}")
                 }
             )
 
