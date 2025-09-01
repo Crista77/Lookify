@@ -35,22 +35,18 @@ fun AdminUserScreen(
     navController: NavController,
     onRichiesteClick: () -> Unit = {}
 ) {
-    // Leggiamo userId direttamente dagli arguments del BackStackEntry
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val userIdFromNav = navBackStackEntry?.arguments?.getInt("userId")?.takeIf { it != -1 }
 
-// Se lo state non ha currentUserId, aggiorniamolo con quello del percorso
     if (state.currentUserId == null && userIdFromNav != null) {
         state.currentUserId = userIdFromNav
     }
 
-// Ora possiamo usare currentUserId in modo sicuro
     val currentUserId = state.currentUserId
     val currentUser = currentUserId?.let { id ->
         state.users.find { it.id_user == id }
     }
 
-    // Controlla se ci sono notifiche non lette per l'utente corrente
     val hasUnreadNotifications = remember(state.reachedNotifications, state.currentUserId) {
         state.reachedNotifications.any { notification ->
             notification.id_user == state.currentUserId && !notification.letta
@@ -58,7 +54,7 @@ fun AdminUserScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController)}
     ) { contentPadding ->
         Column(
@@ -70,7 +66,6 @@ fun AdminUserScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 🔹 Header Profilo Admin
             AdminProfileHeader(
                 user = currentUser,
                 hasUnreadNotifications = hasUnreadNotifications,
@@ -82,19 +77,22 @@ fun AdminUserScreen(
             Spacer(modifier = Modifier.height(60.dp))
 
             Log.d("AdminUserScreen", "currentUserId: $currentUserId")
-            // 🔹 Bottone Inserisci
+
             AdminButton(
                 text = "Inserisci",
-                onClick = {navController.navigate(LookifyRoute.Insert)}
+                onClick = { navController.navigate(LookifyRoute.Insert) }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 🔹 Bottone Richieste
             AdminButton(
                 text = "Richieste",
-                onClick = {navController.navigate(LookifyRoute.AdminRequestPrev)}
+                onClick = { navController.navigate(LookifyRoute.AdminRequestPrev) }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LogoutButton(navController = navController)
         }
     }
 }
@@ -109,7 +107,6 @@ fun AdminProfileHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Header con titolo e campanella notifiche
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -124,7 +121,6 @@ fun AdminProfileHeader(
                 fontWeight = FontWeight.Bold
             )
 
-            // Pulsante campanella notifiche
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -138,8 +134,6 @@ fun AdminProfileHeader(
                         .size(24.dp)
                         .align(Alignment.Center)
                 )
-
-                // Pallino rosso per notifiche non lette
                 if (hasUnreadNotifications) {
                     Box(
                         modifier = Modifier
@@ -209,6 +203,36 @@ fun AdminButton(
         ) {
             Text(
                 text = text,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun LogoutButton(navController: NavController) {
+    Card(
+        modifier = Modifier
+            .width(200.dp)
+            .height(50.dp)
+            .clickable {
+                navController.navigate(LookifyRoute.Login) {
+                    popUpTo(0)
+                    launchSingleTop = true
+                }
+            },
+        colors = CardDefaults.cardColors(containerColor = Color.Red),
+        shape = RoundedCornerShape(25.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Esci dal profilo",
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,

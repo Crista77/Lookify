@@ -56,7 +56,7 @@ fun NotificationsScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
         Column(

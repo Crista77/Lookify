@@ -31,44 +31,41 @@ import com.example.lookify.ui.composables.BottomBar
 import com.example.lookify.ui.composables.TitleAppBar
 
 @Composable
-fun FilmScreen(
+fun SerieScreen(
     state: LookifyState,
     navController: NavController,
     lookifyViewModel: LookifyViewModel,
-    filmId: Int,
+    serieId: Int,
     currentUserId: Int
 ) {
-    val film = state.films.find { it.id_film == filmId }
+    val serie = state.series.find { it.id_serie == serieId }
 
     val context = LocalContext.current
     // Stato locale
     var isLoadingWatched by remember { mutableStateOf(false) }
     var isLoadingRating by remember { mutableStateOf(false) }
-    var rating by remember(film?.stelle) { mutableStateOf(film?.stelle ?: 0) }
+    var rating by remember(serie?.stelle) { mutableStateOf(serie?.stelle ?: 0) }
 
     // Calcola isWatched **da stato corrente**, non da snapshot
     val isWatched = remember(state.users) {
         derivedStateOf {
-            state.users.find { it.id_user == currentUserId }?.filmVisti?.contains(filmId) == true
+            state.users.find { it.id_user == currentUserId }?.serieViste?.contains(serieId) == true
         }
     }
 
-    // Attori del film
-    val filmActors = remember(state.actorsInFilms, state.actors) {
-        val actorIds = state.actorsInFilms.filter { it.filmId == filmId }.map { it.attoreId }
+    val serieActors = remember(state.actorsInSerie, state.actors) {
+        val actorIds = state.actorsInSerie.filter { it.serieId == serieId }.map { it.attoreId }
         state.actors.filter { it.id in actorIds }
     }
 
-    // Piattaforme del film
-    val filmPlatforms = remember(state.filmPlatforms, state.platforms) {
-        val platformIds = state.filmPlatforms.filter { it.filmId == filmId }.map { it.piattaformaId }
+    val seriePlatform = remember(state.seriePlatform, state.platforms) {
+        val platformIds = state.seriePlatform.filter { it.serieId == serieId }.map { it.piattaformaId }
         state.platforms.filter { it.id in platformIds }
     }
 
-    // Amici che hanno visto il film
     val friendsWhoWatched = remember(state.followers, state.users) {
         val followedIds = state.followers.filter { it.seguaceId == currentUserId }.map { it.seguitoId }
-        state.users.filter { it.id_user in followedIds && it.filmVisti.contains(filmId) }
+        state.users.filter { it.id_user in followedIds && it.serieViste.contains(serieId) }
     }
 
     Scaffold(
@@ -76,7 +73,7 @@ fun FilmScreen(
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
 
-        if (film == null) {
+        if (serie == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -84,7 +81,7 @@ fun FilmScreen(
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Film non trovato", color = Color.White, fontSize = 18.sp)
+                Text("Serie non trovata", color = Color.White, fontSize = 18.sp)
             }
         } else {
             LazyColumn(
@@ -99,8 +96,8 @@ fun FilmScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
 
                         AsyncImage(
-                            model = film.imageUri,
-                            contentDescription = film.titolo,
+                            model = serie.imageUri,
+                            contentDescription = serie.titolo,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(280.dp)
@@ -111,7 +108,7 @@ fun FilmScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = film.titolo,
+                            text = serie.titolo,
                             color = Color.White,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold,
@@ -124,10 +121,10 @@ fun FilmScreen(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(film.categoria, color = Color(0xFF4CAF50), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text(" • ${film.durata} min", color = Color(0xFFB0B0B0), fontSize = 14.sp)
-                            if (film.visualizzazioni > 0) {
-                                Text(" • ${film.visualizzazioni} visualizzazioni", color = Color(0xFFB0B0B0), fontSize = 14.sp)
+                            Text(serie.categoria, color = Color(0xFF4CAF50), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(" • ${serie.durata} min", color = Color(0xFFB0B0B0), fontSize = 14.sp)
+                            if (serie.visualizzazioni > 0) {
+                                Text(" • ${serie.visualizzazioni} visualizzazioni", color = Color(0xFFB0B0B0), fontSize = 14.sp)
                             }
                         }
 
@@ -141,7 +138,7 @@ fun FilmScreen(
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("Descrizione", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(film.descrizione, color = Color.White, fontSize = 14.sp)
+                                Text(serie.descrizione, color = Color.White, fontSize = 14.sp)
                             }
                         }
 
@@ -151,11 +148,11 @@ fun FilmScreen(
                             onClick = {
                                 isLoadingWatched = true
                                 if (isWatched.value) {
-                                    lookifyViewModel.removeWatchedFilm(currentUserId, filmId) {
+                                    lookifyViewModel.removeWatchedSerie(currentUserId, serieId) {
                                         isLoadingWatched = false
                                     }
                                 } else {
-                                    lookifyViewModel.addWatchedFilm(context, currentUserId, filmId) {
+                                    lookifyViewModel.addWatchedSerie(context, currentUserId, serieId) {
                                         isLoadingWatched = false
                                     }
                                 }
@@ -185,7 +182,7 @@ fun FilmScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text("Valuta questo film", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Valuta questa Serie", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
@@ -199,7 +196,7 @@ fun FilmScreen(
                                         .clickable(enabled = !isLoadingRating) {
                                             isLoadingRating = true
                                             val newRating = if (rating == star) 0 else star
-                                            lookifyViewModel.rateFilm(currentUserId, filmId, newRating) {
+                                            lookifyViewModel.rateSerie(currentUserId, serieId, newRating) {
                                                 rating = newRating
                                                 isLoadingRating = false
                                             }
@@ -219,9 +216,9 @@ fun FilmScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        if (filmActors.isNotEmpty()) {
+                        if (serieActors.isNotEmpty()) {
                             Text("Cast:", color = Color.White, fontWeight = FontWeight.Bold)
-                            LazyRow { items(filmActors) { actor ->
+                            LazyRow { items(serieActors) { actor ->
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(end = 12.dp)) {
                                     Icon(Icons.Filled.Person, contentDescription = actor.cognome, tint = Color.White, modifier = Modifier.size(40.dp))
                                     Text(actor.cognome, color = Color.White, fontSize = 12.sp)
@@ -231,9 +228,9 @@ fun FilmScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        if (filmPlatforms.isNotEmpty()) {
+                        if (seriePlatform.isNotEmpty()) {
                             Text("Disponibile su:", color = Color.White, fontWeight = FontWeight.Bold)
-                            LazyRow { items(filmPlatforms) { platform ->
+                            LazyRow { items(seriePlatform) { platform ->
                                 Box(
                                     modifier = Modifier
                                         .padding(end = 12.dp)
@@ -246,7 +243,7 @@ fun FilmScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         if (friendsWhoWatched.isNotEmpty()) {
-                            Text("Amici che hanno visto questo film:", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Amici che hanno visto questa Serie:", color = Color.White, fontWeight = FontWeight.Bold)
                             LazyRow { items(friendsWhoWatched) { friend ->
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(end = 12.dp)) {
                                     Icon(Icons.Filled.Person, contentDescription = friend.username, tint = Color.White, modifier = Modifier.size(32.dp))

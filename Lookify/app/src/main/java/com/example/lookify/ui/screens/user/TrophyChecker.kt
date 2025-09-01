@@ -9,7 +9,8 @@ class TrophyChecker {
         val alreadyUnlocked = userAchievements.map { it.trofeoId }
 
         // Calcola statistiche utente
-        val watchedFilms = state.watchedFilms.filter { it.utenteId == userId }
+        val user = state.users.filter { it.id_user == userId }
+        val watchedFilms = user.first().filmVisti
         val watchedSeries = state.watchedSeries.filter { it.id_user == userId }
         val totalWatched = watchedFilms.size + watchedSeries.size
 

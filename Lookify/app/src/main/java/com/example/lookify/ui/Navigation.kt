@@ -26,6 +26,7 @@ import com.example.lookify.ui.screens.registration.RegistrationScreen
 import com.example.lookify.ui.screens.registration.TestCameraScreen
 import com.example.lookify.ui.screens.search.FilmScreen
 import com.example.lookify.ui.screens.search.SearchScreen
+import com.example.lookify.ui.screens.search.SerieScreen
 import com.example.lookify.ui.screens.user.OtherUserScreen
 import com.example.lookify.ui.screens.user.RequestScreen
 import com.example.lookify.ui.screens.user.UserScreen
@@ -51,6 +52,7 @@ sealed interface LookifyRoute {
     @Serializable data object Notification : LookifyRoute
     @Serializable data object OtherUser: LookifyRoute
     @Serializable data object Film: LookifyRoute
+    @Serializable data object Serie: LookifyRoute
 
 }
 
@@ -63,9 +65,25 @@ fun LookifyNavGraph(navController: NavHostController, userRepo: UsersRepository)
         navController = navController,
         startDestination = LookifyRoute.Login
     ) {
-        composable<LookifyRoute.Home> {
-            HomeScreen(lookifyState, navController)
+        composable(
+            route = "${LookifyRoute.Home}?currentUserId={currentUserId}",
+            arguments = listOf(
+                navArgument("currentUserId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) { backStackEntry ->
+            val currentUserId = backStackEntry.arguments?.getInt("currentUserId")
+                ?: lookifyState.currentUserId ?: -1
+
+            HomeScreen(
+                state = lookifyState,
+                navController = navController,
+                currentUserId = currentUserId
+            )
         }
+
 
         composable<LookifyRoute.SearchFilm> {
             SearchScreen(lookifyState, navController, "Film")
@@ -110,15 +128,10 @@ fun LookifyNavGraph(navController: NavHostController, userRepo: UsersRepository)
         ) { backStackEntry ->
             val userIdFromNav = backStackEntry.arguments?.getInt("userId")?.takeIf { it != -1 }
 
-            LaunchedEffect(userIdFromNav) {
-                if (lookifyState.currentUserId == null && userIdFromNav != null) {
-                    lookifyState.currentUserId = userIdFromNav
-                }
-            }
-
             UserScreen(
                 state = lookifyState,
-                navController = navController
+                navController = navController,
+                currentUserId = userIdFromNav
             )
         }
 
@@ -218,7 +231,7 @@ fun LookifyNavGraph(navController: NavHostController, userRepo: UsersRepository)
                     navController = navController,
                     lookifyViewModel = lookifyVm,
                     otherUserId = otherUserId,
-                    currentUserId = it // 👈 evita -1
+                    currentUserId = it
                 )
             }
         }
@@ -244,6 +257,31 @@ fun LookifyNavGraph(navController: NavHostController, userRepo: UsersRepository)
                 navController = navController,
                 lookifyViewModel = lookifyVm,
                 filmId = filmId,
+                currentUserId = currentUserId
+            )
+        }
+
+        composable(
+            route = "${LookifyRoute.Serie}?serieId={serieId}&currentUserId={currentUserId}",
+            arguments = listOf(
+                navArgument("serieId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+                navArgument("currentUserId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) { backStackEntry ->
+            val serieId = backStackEntry.arguments?.getInt("serieId") ?: -1
+            val currentUserId = backStackEntry.arguments?.getInt("currentUserId") ?: -1
+
+            SerieScreen(
+                state = lookifyState,
+                navController = navController,
+                lookifyViewModel = lookifyVm,
+                serieId = serieId,
                 currentUserId = currentUserId
             )
         }

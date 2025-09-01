@@ -27,9 +27,9 @@ import com.example.lookify.ui.LookifyState
 import com.example.lookify.ui.composables.*
 
 @Composable
-fun HomeScreen(state: LookifyState, navController: NavController) {
+fun HomeScreen(state: LookifyState, navController: NavController, currentUserId: Int) {
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
 
@@ -51,6 +51,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 FilmCarousel(
+                    currentUserId,
                     state,
                     films = state.films
                         .filter { it.visibile }
@@ -72,6 +73,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 FilmCarousel(
+                    currentUserId,
                     state,
                     films = state.films
                         .filter { it.visibile }
@@ -93,6 +95,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 SerieTvCarousel(
+                    currentUserId,
                     series = state.series
                         .filter { it.visibile }
                         .sortedByDescending { it.id_serie }
@@ -113,6 +116,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
                     textAlign = TextAlign.Start
                 )
                 SerieTvCarousel(
+                    currentUserId,
                     series = state.series
                         .filter { it.visibile }
                         .sortedByDescending { it.visualizzazioni }
@@ -129,6 +133,7 @@ fun HomeScreen(state: LookifyState, navController: NavController) {
 
 @Composable
 fun FilmCarousel(
+    currentUserId: Int,
     state: LookifyState,
     films: List<Film>,
     navController: NavController,
@@ -160,7 +165,7 @@ fun FilmCarousel(
             FilmItem(
                 item = films[currentIndex],
                 onClick = {
-                    navController.navigate("${LookifyRoute.Film}?filmId=${films[currentIndex].id_film}&currentUserId=${state.currentUserId}")
+                    navController.navigate("${LookifyRoute.Film}?filmId=${films[currentIndex].id_film}&currentUserId=${currentUserId}")
                 }
             )
 
@@ -222,6 +227,7 @@ fun FilmItem(item: Film, onClick: () -> Unit) {
 
 @Composable
 fun SerieTvCarousel(
+    currentUserId: Int,
     series: List<SerieTV>,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -252,7 +258,7 @@ fun SerieTvCarousel(
             SerieTVItem(
                 item = series[currentIndex],
                 onClick = {
-                    //navController.navigate(LookifyRoute.TravelDetails(serietv[currentIndex].id_serie))
+                    navController.navigate("${LookifyRoute.Serie}?serieId=${series[currentIndex].id_serie}&currentUserId=${currentUserId}")
                 }
             )
 

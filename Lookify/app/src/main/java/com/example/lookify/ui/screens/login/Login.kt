@@ -30,7 +30,7 @@ fun LoginScreen(state: LookifyState, navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) }
+        topBar = { TitleAppBar(navController, state) }
     ) { contentPadding ->
 
         Column(
@@ -144,7 +144,7 @@ fun LoginScreen(state: LookifyState, navController: NavController) {
                     when (loginResult) {
                         is LoginResult.Success -> {
                             state.currentUserId = loginResult.user.id_user
-                            navController.navigate(LookifyRoute.Home) {
+                            navController.navigate("${LookifyRoute.Home}?currentUserId=${state.currentUserId}}") {
                                 popUpTo(LookifyRoute.Login) { inclusive = true }
                             }
                         }

@@ -1,7 +1,13 @@
 package com.example.lookify.ui.screens.cinema
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
 import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,31 +26,67 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.example.lookify.data.database.Cinema
 import com.example.lookify.data.database.Users
 import com.example.lookify.ui.LookifyState
 import com.example.lookify.ui.composables.TitleAppBar
 import com.example.lookify.ui.composables.BottomBar
+import com.google.android.gms.location.LocationServices
 
 @Composable
 fun CinemaScreen(state: LookifyState, navController: NavController) {
     val context = LocalContext.current
 
     val currentUserId = rememberSaveable { state.currentUserId!! }
+    val currentUser = currentUserId?.let { id -> state.users.find { it.id_user == id } }
 
-    val currentUser = currentUserId?.let { id ->
-        state.users.find { it.id_user == id }
+    var userCity by remember { mutableStateOf<String?>(null) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                        location?.let {
+                            Log.d("CinemaScreen", "Lat: ${it.latitude}, Lng: ${it.longitude}")
+                            val closestCity = findClosestCity(it.latitude, it.longitude)
+                            Log.d("CinemaScreen", "Closest city: $closestCity")
+                            userCity = closestCity ?: currentUser?.residenza
+                        } ?: run {
+                            userCity = currentUser?.residenza
+                        }
+                    }
+                } else {
+                    userCity = currentUser?.residenza
+                }
+            } else {
+                userCity = currentUser?.residenza
+            }
+        }
+    )
+
+    LaunchedEffect(Unit) {
+        if (userCity == null) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
     }
 
-    val nearbyCinemas = remember(currentUser, state.cinemas) {
-        currentUser?.residenza?.let { residenza ->
-            getCinemasByResidenceOrRegion(residenza, state.cinemas)
+    val nearbyCinemas = remember(userCity, state.cinemas) {
+        userCity?.let { city ->
+            getCinemasByResidenceOrRegion(city, state.cinemas)
         } ?: emptyList()
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
         Column(
@@ -62,7 +104,7 @@ fun CinemaScreen(state: LookifyState, navController: NavController) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            if (currentUser?.residenza != null) {
+            if (!userCity.isNullOrEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -75,7 +117,7 @@ fun CinemaScreen(state: LookifyState, navController: NavController) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Vicino a ${currentUser.residenza}",
+                        text = "Vicino a $userCity",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
@@ -83,7 +125,7 @@ fun CinemaScreen(state: LookifyState, navController: NavController) {
             }
 
             if (nearbyCinemas.isEmpty()) {
-                NoCinemaPlaceholder(currentUser?.residenza == null)
+                NoCinemaPlaceholder(userCity.isNullOrEmpty())
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(nearbyCinemas) { cinema ->
@@ -201,142 +243,77 @@ fun getCurrentUser(state: LookifyState): Users? {
     }
 }
 
-// Mappa provincia -> regione
-val provinceToRegion = mapOf(
-    // Emilia-Romagna
-    "bologna" to "Emilia-Romagna",
-    "forlì-cesena" to "Emilia-Romagna",
-    "forli" to "Emilia-Romagna",
-    "cesena" to "Emilia-Romagna",
-    "forlimpopoli" to "Emilia-Romagna",
-    "ravenna" to "Emilia-Romagna",
-    "faenza" to "Emilia-Romagna",
-    "rimini" to "Emilia-Romagna",
-    "modena" to "Emilia-Romagna",
-    "reggio emilia" to "Emilia-Romagna",
-    "parma" to "Emilia-Romagna",
-    "piacenza" to "Emilia-Romagna",
-    "ferrara" to "Emilia-Romagna",
-
-    // Lombardia
-    "milano" to "Lombardia",
-    "bergamo" to "Lombardia",
-    "brescia" to "Lombardia",
-    "como" to "Lombardia",
-    "cremona" to "Lombardia",
-    "mantova" to "Lombardia",
-    "pavia" to "Lombardia",
-    "sondrio" to "Lombardia",
-    "varese" to "Lombardia",
-    "lecco" to "Lombardia",
-    "lodi" to "Lombardia",
-    "monza e brianza" to "Lombardia",
-
-    // Veneto
-    "venezia" to "Veneto",
-    "verona" to "Veneto",
-    "padova" to "Veneto",
-    "vicenza" to "Veneto",
-    "treviso" to "Veneto",
-    "belluno" to "Veneto",
-    "rovigo" to "Veneto",
-
-    // Piemonte
-    "torino" to "Piemonte",
-    "alessandria" to "Piemonte",
-    "asti" to "Piemonte",
-    "biella" to "Piemonte",
-    "cuneo" to "Piemonte",
-    "novara" to "Piemonte",
-    "verbania" to "Piemonte",
-    "vercelli" to "Piemonte",
-
-    // Liguria
-    "genova" to "Liguria",
-    "imperia" to "Liguria",
-    "la spezia" to "Liguria",
-    "savona" to "Liguria",
-
-    // Toscana
-    "firenze" to "Toscana",
-    "arezzo" to "Toscana",
-    "grosseto" to "Toscana",
-    "livorno" to "Toscana",
-    "lucca" to "Toscana",
-    "massa carrara" to "Toscana",
-    "pisa" to "Toscana",
-    "pistoia" to "Toscana",
-    "prato" to "Toscana",
-    "siena" to "Toscana",
-
-    // Lazio
-    "roma" to "Lazio",
-    "frosinone" to "Lazio",
-    "latina" to "Lazio",
-    "rieti" to "Lazio",
-    "viterbo" to "Lazio",
-
-    // Campania
-    "napoli" to "Campania",
-    "avellino" to "Campania",
-    "benevento" to "Campania",
-    "caserta" to "Campania",
-    "salerno" to "Campania",
-
-    // Sicilia
-    "palermo" to "Sicilia",
-    "catania" to "Sicilia",
-    "messina" to "Sicilia",
-    "agrigento" to "Sicilia",
-    "caltanissetta" to "Sicilia",
-    "enna" to "Sicilia",
-    "ragusa" to "Sicilia",
-    "siracusa" to "Sicilia",
-    "trapani" to "Sicilia",
-
-    // Puglia
-    "bari" to "Puglia",
-    "brindisi" to "Puglia",
-    "foggia" to "Puglia",
-    "lecce" to "Puglia",
-    "taranto" to "Puglia",
-    "barletta-andria-trani" to "Puglia",
-
-    // Calabria
-    "cosenza" to "Calabria",
-    "catanzaro" to "Calabria",
-    "reggio calabria" to "Calabria",
-    "crotone" to "Calabria",
-    "vibo valentia" to "Calabria",
-
-    // Altre regioni principali
-    "trieste" to "Friuli-Venezia Giulia",
-    "udine" to "Friuli-Venezia Giulia",
-    "pordenone" to "Friuli-Venezia Giulia",
-    "gorizia" to "Friuli-Venezia Giulia",
-    "trento" to "Trentino-Alto Adige",
-    "bolzano" to "Trentino-Alto Adige",
-    "aosta" to "Valle d'Aosta",
-    "ancona" to "Marche",
-    "perugia" to "Umbria",
-    "terni" to "Umbria",
-    "l'aquila" to "Abruzzo",
-    "chieti" to "Abruzzo",
-    "pescara" to "Abruzzo",
-    "teramo" to "Abruzzo",
-    "cagliari" to "Sardegna",
-    "nuoro" to "Sardegna",
-    "oristano" to "Sardegna",
-    "sassari" to "Sardegna",
-    "carbonia-iglesias" to "Sardegna"
+// Mappa città -> coordinate
+val cityCoordinates = mapOf(
+    "cesena" to Pair(45.0703, 7.6869),
+    "bologna" to Pair(44.4949, 11.3426),
+    "rimini" to Pair(44.0678, 12.5695),
+    "forli" to Pair(44.2225, 12.0407),
+    "modena" to Pair(44.6471, 10.9252),
+    "parma" to Pair(44.8015, 10.3279),
+    "ferrara" to Pair(44.8354, 11.6198),
+    "ravenna" to Pair(44.4184, 12.2035),
+    "milano" to Pair(45.4642, 9.1900),
+    "torino" to Pair(44.1403, 12.2432),
+    "roma" to Pair(41.9028, 12.4964),
+    "napoli" to Pair(40.8522, 14.2681),
+    "palermo" to Pair(38.1157, 13.3615),
+    "catania" to Pair(37.5079, 15.0830),
+    "genova" to Pair(44.4056, 8.9463),
+    "bari" to Pair(41.1173, 16.8719),
+    "firenze" to Pair(43.7696, 11.2558),
+    "venezia" to Pair(45.4408, 12.3155),
+    "verona" to Pair(45.4384, 10.9916),
+    "trieste" to Pair(45.6495, 13.7768)
 )
 
+// Haversine formula per distanza km
+fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val R = 6371.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+}
 
+// Trova la città più vicina dato lat/lng
+fun findClosestCity(lat: Double, lon: Double): String? {
+    return cityCoordinates.minByOrNull { (_, coords) ->
+        haversine(lat, lon, coords.first, coords.second)
+    }?.key
+}
+
+// Mappa provincia -> regione
+val provinceToRegion = mapOf(
+    "cesena" to "Emilia-Romagna",
+    "bologna" to "Emilia-Romagna",
+    "rimini" to "Emilia-Romagna",
+    "forli" to "Emilia-Romagna",
+    "modena" to "Emilia-Romagna",
+    "parma" to "Emilia-Romagna",
+    "ferrara" to "Emilia-Romagna",
+    "ravenna" to "Emilia-Romagna",
+    "milano" to "Lombardia",
+    "torino" to "Piemonte",
+    "roma" to "Lazio",
+    "napoli" to "Campania",
+    "palermo" to "Sicilia",
+    "catania" to "Sicilia",
+    "genova" to "Liguria",
+    "bari" to "Puglia",
+    "firenze" to "Toscana",
+    "venezia" to "Veneto",
+    "verona" to "Veneto",
+    "trieste" to "Friuli-Venezia Giulia"
+)
+
+// Filtra cinema per residenza o regione
 fun getCinemasByResidenceOrRegion(residenza: String, allCinemas: List<Cinema>): List<Cinema> {
     val normalized = residenza.lowercase().trim()
-
     val userRegion = provinceToRegion[normalized] ?: return emptyList()
-
     return allCinemas.filter { cinema ->
         val cinemaProvince = cinema.provincia.lowercase().trim()
         provinceToRegion[cinemaProvince] == userRegion
@@ -345,7 +322,8 @@ fun getCinemasByResidenceOrRegion(residenza: String, allCinemas: List<Cinema>): 
 
 fun openMapsForCinema(context: android.content.Context, cinema: Cinema) {
     val query = "${cinema.nome}, ${cinema.indirizzo}, ${cinema.provincia}"
-    val gmmIntentUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}")
+    val gmmIntentUri =
+        Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}")
     val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
     context.startActivity(mapIntent)
 }

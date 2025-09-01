@@ -91,7 +91,7 @@ fun AdminRequestsPreviewScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) }
+        topBar = { TitleAppBar(navController, state) }
     ) { contentPadding ->
         Column(
             modifier = Modifier

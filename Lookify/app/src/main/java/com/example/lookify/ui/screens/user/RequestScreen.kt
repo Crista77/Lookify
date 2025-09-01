@@ -77,7 +77,7 @@ fun RequestScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) }
+        topBar = { TitleAppBar(navController, state) }
     ) { contentPadding ->
         LazyColumn(
             modifier = Modifier

@@ -90,7 +90,7 @@ fun RegistrationScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
     ) { contentPadding ->
 
         Column(

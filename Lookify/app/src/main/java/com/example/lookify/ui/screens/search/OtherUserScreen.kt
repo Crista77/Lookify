@@ -45,20 +45,23 @@ fun OtherUserScreen(
 
     val watchedContent = remember(otherUserId, selectedCategory, state) {
         when (selectedCategory) {
-            "Film" -> state.watchedFilms.filter { it.utenteId == otherUserId }
-                .mapNotNull { watched ->
-                    state.films.find { it.id_film == watched.filmId }?.let { film ->
-                        WatchedItem(
-                            id = film.id_film,
-                            title = film.titolo,
-                            duration = film.durata,
-                            category = film.categoria,
-                            imageUri = film.imageUri,
-                            type = ContentType.FILM,
-                            visualizations = film.visualizzazioni
-                        )
+            "Film" -> {
+                val user = state.users.filter { it.id_user == otherUserId }
+                val watchedFilms = user.first().filmVisti
+                    watchedFilms.mapNotNull { watched ->
+                        state.films.find { it.id_film == watched }?.let { film ->
+                            WatchedItem(
+                                id = film.id_film,
+                                title = film.titolo,
+                                duration = film.durata,
+                                category = film.categoria,
+                                imageUri = film.imageUri,
+                                type = ContentType.FILM,
+                                visualizations = film.visualizzazioni
+                            )
+                        }
                     }
-                }
+            }
             "Serie" -> state.watchedSeries.filter { it.id_user == otherUserId }
                 .mapNotNull { watched ->
                     state.series.find { it.id_serie == watched.serieId }?.let { serie ->
@@ -109,7 +112,7 @@ fun OtherUserScreen(
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
         LazyColumn(
@@ -175,8 +178,13 @@ fun OtherUserScreen(
             }
 
             items(watchedContent.take(3)) { content ->
-                WatchedContentCard(content = content)
+                WatchedContentCard(
+                    content = content,
+                    navController = navController,
+                    currentUserId = state.currentUserId
+                )
             }
+
 
             item {
                 TrophiesSection(trophies = userTrophies)

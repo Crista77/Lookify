@@ -20,11 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.lookify.R
 import com.example.lookify.ui.LookifyRoute
+import com.example.lookify.ui.LookifyState
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TitleAppBar(navController: NavController) {
+fun TitleAppBar(navController: NavController, state: LookifyState) {
     CenterAlignedTopAppBar(
         title = {
             Image(
@@ -33,7 +34,7 @@ fun TitleAppBar(navController: NavController) {
                 modifier = Modifier
                     .height(40.dp)
                     .width(150.dp)
-                    .clickable { navController.navigate(LookifyRoute.Home) },
+                    .clickable { navController.navigate("${LookifyRoute.Home}?currentUserId=${state.currentUserId}}") },
                 contentScale = ContentScale.Fit
             )
         },

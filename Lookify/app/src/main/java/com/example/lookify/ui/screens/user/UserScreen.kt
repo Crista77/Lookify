@@ -44,7 +44,6 @@ import com.example.lookify.ui.LookifyState
 import com.example.lookify.ui.composables.BottomBar
 import com.example.lookify.ui.composables.TitleAppBar
 
-// 🔹 Item visto dall'utente
 data class WatchedItem(
     val id: Int,
     val title: String,
@@ -60,7 +59,6 @@ enum class ContentType {
     SERIE_TV
 }
 
-// 🔹 Trofeo con icona Material
 data class Trophy(
     val id: Int,
     val nome: String,
@@ -72,39 +70,30 @@ data class TrophyItem(
     val isUnlocked: Boolean
 )
 
-// 🔹 Statistiche per categoria
 data class CategoryStats(
     val totalViewed: Int,
     val totalDuration: Int
 )
 
 @Composable
-fun UserScreen(state: LookifyState, navController: NavController) {
-    // Leggiamo userId direttamente dagli arguments del BackStackEntry
+fun UserScreen(state: LookifyState, navController: NavController, currentUserId: Int?) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val userIdFromNav = navBackStackEntry?.arguments?.getInt("userId")?.takeIf { it != -1 }
 
-// Se lo state non ha currentUserId, aggiorniamolo con quello del percorso
-    if (state.currentUserId == null && userIdFromNav != null) {
-        state.currentUserId = userIdFromNav
-    }
-
-// Ora possiamo usare currentUserId in modo sicuro
-    val currentUserId = state.currentUserId
     val currentUser = currentUserId?.let { id ->
         state.users.find { it.id_user == id }
     }
 
     var selectedCategory by remember { mutableStateOf("Film") }
 
-    // 🔹 Contenuti guardati
     val watchedContent = remember(currentUserId, selectedCategory, state) {
         currentUserId?.let { userId ->
             when (selectedCategory) {
                 "Film" -> {
-                    val watchedFilms = state.watchedFilms.filter { it.utenteId == userId }
+                    val user = state.users.filter { it.id_user == userId }
+                    val watchedFilms = user.first().filmVisti
                     watchedFilms.mapNotNull { watched ->
-                        state.films.find { it.id_film == watched.filmId }?.let { film ->
+                        state.films.find { it.id_film == watched }?.let { film ->
                             WatchedItem(
                                 id = film.id_film,
                                 title = film.titolo,
@@ -138,7 +127,6 @@ fun UserScreen(state: LookifyState, navController: NavController) {
         } ?: emptyList()
     }
 
-    // 🔹 Statistiche per la categoria selezionata
     val categoryStats = remember(watchedContent) {
         CategoryStats(
             totalViewed = watchedContent.size,
@@ -146,14 +134,12 @@ fun UserScreen(state: LookifyState, navController: NavController) {
         )
     }
 
-    // 🔹 Followers
     val followersCount = remember(currentUserId, state.followers) {
         currentUserId?.let { userId ->
             state.followers.count { it.seguitoId == userId }
         } ?: 0
     }
 
-    // 🔹 Trofei
     val userTrophies = remember(currentUserId, state) {
         currentUserId?.let { userId ->
             val userAchievements = state.achievements.filter { it.id_user == userId }
@@ -162,7 +148,7 @@ fun UserScreen(state: LookifyState, navController: NavController) {
                     trophy = Trophy(
                         id = trophy.id,
                         nome = trophy.nome,
-                        icon = getTrophyIcon(trophy.nome) // Usa la funzione helper
+                        icon = getTrophyIcon(trophy.nome)
                     ),
                     isUnlocked = userAchievements.any { it.trofeoId == trophy.id }
                 )
@@ -177,7 +163,7 @@ fun UserScreen(state: LookifyState, navController: NavController) {
     }
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
         LazyColumn(
@@ -214,7 +200,11 @@ fun UserScreen(state: LookifyState, navController: NavController) {
             }
 
             items(watchedContent.take(3)) { content ->
-                WatchedContentCard(content = content)
+                WatchedContentCard(
+                    content = content,
+                    navController = navController,
+                    currentUserId = state.currentUserId
+                )
             }
 
             item {
@@ -229,6 +219,10 @@ fun UserScreen(state: LookifyState, navController: NavController) {
 
             item {
                 TrophyProgressBar(trophies = userTrophies, totalTrophiesCount = state.trophies.size)
+            }
+
+            item {
+                LogoutButton(navController = navController)
             }
 
             item {
@@ -283,9 +277,7 @@ fun ProfileHeader(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Spacer(modifier = Modifier.width(48.dp))
-
             Text(
                 text = "Il Mio Profilo",
                 color = Color.White,
@@ -293,8 +285,6 @@ fun ProfileHeader(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center
             )
-
-            // Pulsante campanella notifiche (allineato a destra)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -308,8 +298,6 @@ fun ProfileHeader(
                         .size(24.dp)
                         .align(Alignment.Center)
                 )
-
-                // Pallino rosso per notifiche non lette
                 if (hasUnreadNotifications) {
                     Box(
                         modifier = Modifier
@@ -321,7 +309,6 @@ fun ProfileHeader(
                 }
             }
         }
-
 
         Text(
             text = user?.username ?: "Guest",
@@ -387,7 +374,6 @@ fun CategoryStatsCard(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // 🔹 Numero totale visti
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -404,22 +390,17 @@ fun CategoryStatsCard(
                     textAlign = TextAlign.Center
                 )
             }
-
-            // 🔹 Divisore verticale
             Box(
                 modifier = Modifier
                     .width(1.dp)
                     .height(50.dp)
                     .background(Color.Gray)
             )
-
-            // 🔹 Durata totale
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 val totalHours = categoryStats.totalDuration / 60
                 val totalMinutes = categoryStats.totalDuration % 60
-
                 Text(
                     text = if (totalHours > 0) "${totalHours}h ${totalMinutes}m" else "${totalMinutes}m",
                     color = Color.Red,
@@ -438,9 +419,17 @@ fun CategoryStatsCard(
 }
 
 @Composable
-fun WatchedContentCard(content: WatchedItem) {
+fun WatchedContentCard(
+    content: WatchedItem,
+    navController: NavController,
+    currentUserId: Int?
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                navController.navigate("${LookifyRoute.Film}?filmId=${content.id}&currentUserId=$currentUserId")
+            },
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -565,7 +554,6 @@ fun TrophiesSection(trophies: List<TrophyItem>) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -598,7 +586,7 @@ fun TrophiesSection(trophies: List<TrophyItem>) {
 @Composable
 fun TrophyProgressBar(trophies: List<TrophyItem>, totalTrophiesCount: Int) {
     val unlocked = trophies.count { it.isUnlocked }
-    val total = totalTrophiesCount.coerceAtLeast(1) // evita divisione per 0
+    val total = totalTrophiesCount.coerceAtLeast(1)
     val progress = unlocked.toFloat() / total.toFloat()
 
     Column(
@@ -614,13 +602,35 @@ fun TrophyProgressBar(trophies: List<TrophyItem>, totalTrophiesCount: Int) {
                 .height(8.dp)
                 .clip(RoundedCornerShape(50))
         )
-
         Spacer(modifier = Modifier.height(4.dp))
-
         Text(
             text = "$unlocked / $total Trofei",
             color = Color.White,
             fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+fun LogoutButton(navController: NavController) {
+    Button(
+        onClick = {
+            navController.navigate(LookifyRoute.Login) {
+                popUpTo(0)
+                launchSingleTop = true
+            }
+        },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+        shape = RoundedCornerShape(25.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        Text(
+            text = "Esci dal profilo",
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
     }
 }

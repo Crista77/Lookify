@@ -17,8 +17,8 @@ data class Film(
     @ColumnInfo(name = "category") val categoria: String,
     @ColumnInfo(name = "toSee") val visibile: Boolean,
     @ColumnInfo(name = "image_uri") val imageUri: String? = null,
-    @ColumnInfo(name = "visual") val visualizzazioni: Int,
-    @ColumnInfo(name = "stars") val stelle: Int = 0
+    @ColumnInfo(name = "visual") var visualizzazioni: Int,
+    @ColumnInfo(name = "stars") var stelle: Int = 0
 )
 
 @Entity (tableName = "users")
@@ -30,7 +30,9 @@ data class Users(
     @ColumnInfo(name = "password") val password: String,
     @ColumnInfo(name = "image") val immagine: String? = null,
     @ColumnInfo(name = "admin") val admin: Boolean = false,
-    @ColumnInfo(name = "living") val residenza: String
+    @ColumnInfo(name = "living") val residenza: String,
+    val filmVisti: List<Int> = emptyList(),
+    val serieViste: List<Int> = emptyList()
 )
 
 @Entity(
@@ -76,7 +78,8 @@ data class SerieTV(
     @ColumnInfo(name = "category") val categoria: String,
     @ColumnInfo(name = "toSee") val visibile: Boolean,
     @ColumnInfo(name = "image_uri") val imageUri: String? = null,
-    @ColumnInfo(name = "visual") val visualizzazioni: Int
+    @ColumnInfo(name = "visual") val visualizzazioni: Int,
+    @ColumnInfo(name = "stars") var stelle: Int = 0
 
 )
 

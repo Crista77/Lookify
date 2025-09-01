@@ -54,6 +54,8 @@ dependencies {
     implementation (libs.play.services.maps)
     implementation (libs.osmdroid.osmdroid.android)
     implementation (libs.osmdroid.mapsforge)
+    implementation (libs.gson)
+    implementation (libs.google.accompanist.permissions)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

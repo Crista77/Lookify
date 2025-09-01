@@ -64,7 +64,7 @@ fun SearchScreen(state: LookifyState, navController: NavController, selectedNav:
     // Utenti dal database tramite state
 
     Scaffold(
-        topBar = { TitleAppBar(navController) },
+        topBar = { TitleAppBar(navController, state) },
         bottomBar = { BottomBar(state, navController) }
     ) { contentPadding ->
 
@@ -186,6 +186,7 @@ fun SearchScreen(state: LookifyState, navController: NavController, selectedNav:
                 }
                 SearchFilter.SERIE_TV -> {
                     SeriesTvSearchResults(
+                        state,
                         series = filterSeries(state.series, searchQuery, selectedCategory),
                         navController = navController
                     )
@@ -354,6 +355,7 @@ fun FilmSearchResults(
 
 @Composable
 fun SeriesTvSearchResults(
+    state: LookifyState,
     series: List<SerieTV>,
     navController: NavController
 ) {
@@ -369,7 +371,7 @@ fun SeriesTvSearchResults(
                 SerieSearchItem(
                     serie = serie,
                     onClick = {
-                        //navController.navigate("${LookifyRoute.SerieDetail}/${serie.id_serie}")
+                        navController.navigate("${LookifyRoute.Serie}?serieId=${serie.id_serie}&currentUserId=${state.currentUserId}")
                     }
                 )
             }
